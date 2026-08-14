@@ -21,6 +21,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@clerk/express": "^2.1.55",
     "express": "^5.2.1",
     "helmet": "^8.3.0"
   },

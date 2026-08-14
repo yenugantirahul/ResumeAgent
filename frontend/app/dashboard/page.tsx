@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { useUser } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "ResumeAgent | Dashboard",
@@ -23,6 +25,7 @@ const analyses = [
 ];
 
 export default function DashboardPage() {
+ 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
       <div className="flex items-end justify-between gap-6">
