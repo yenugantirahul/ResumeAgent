@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseClient } from "@/config/supabase";
+import { api } from "@/lib/axios";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { useRef, useState } from "react";
@@ -38,6 +39,18 @@ export default function AnalyzePage() {
     }
 
     console.log("Uploaded:", data);
+    const res = await api.post(
+      "/analyze",
+      {
+        filePath: data.path,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${getToken}`,
+        },
+      },
+    );
+    console.log(res.data)
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
