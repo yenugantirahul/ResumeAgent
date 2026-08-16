@@ -2,6 +2,7 @@
 
 import { createSupabaseClient } from "@/config/supabase";
 import { api } from "@/lib/axios";
+import type { AxiosRequestConfig } from "axios";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { useRef, useState } from "react";
@@ -33,24 +34,33 @@ export default function AnalyzePage() {
         upsert: false,
       });
 
+    console.log("[upload] result →", { data, error });
+
     if (error) {
       console.error("Upload failed:", error.message);
       return;
     }
 
     console.log("Uploaded:", data);
-    const res = await api.post(
-      "/analyze",
-      {
-        filePath: data.path,
+    console.log("[analyze] data.path:", data.path, "| data.fullPath:", data.fullPath);
+   const token = await getToken();
+
+try {
+  const res = await api.post(
+    "/analyze",
+    {
+      filePath: data.path,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${getToken}`,
-        },
-      },
-    );
-    console.log(res.data)
+    },
+  );
+  console.log(res.data.profile);
+} catch (err: any) {
+  console.error("[analyze] request failed:", err?.response?.data ?? err?.message);
+}
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

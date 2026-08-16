@@ -22,3 +22,12 @@ export function createSupabaseClient(req: Request) {
         }
     );
 }
+
+// Admin client bypasses RLS — safe to use on the backend
+// since Clerk middleware already verified the user's identity.
+export function createSupabaseAdmin() {
+    return createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+}
