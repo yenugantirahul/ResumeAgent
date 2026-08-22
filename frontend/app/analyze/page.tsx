@@ -10,6 +10,7 @@ import { useRef, useState } from "react";
 export default function AnalyzePage() {
   const { isSignedIn } = useUser();
   const { getToken, userId } = useAuth();
+  const [jd, setJd] = useState<string>();
   const supabase = createSupabaseClient(getToken);
   if (!isSignedIn) {
     redirect("/sign-in");
@@ -20,6 +21,10 @@ export default function AnalyzePage() {
 
   // This function uploads the file to the supabase
   async function handleSubmit() {
+    if (!jd) {
+      console.error("Job description is Empty");
+      return;
+    }
     if (!file || !userId) {
       console.log("No file or user");
       return;
@@ -42,25 +47,37 @@ export default function AnalyzePage() {
     }
 
     console.log("Uploaded:", data);
-    console.log("[analyze] data.path:", data.path, "| data.fullPath:", data.fullPath);
-   const token = await getToken();
+    console.log(
+      "[analyze] data.path:",
+      data.path,
+      "| data.fullPath:",
+      data.fullPath,
+    );
+    const token = await getToken();
 
-try {
-  const res = await api.post(
-    "/analyze",
-    {
-      filePath: data.path,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-  console.log(res.data.profile);
-} catch (err: any) {
-  console.error("[analyze] request failed:", err?.response?.data ?? err?.message);
-}
+    try {
+      const res = await api.post(
+        "/analyze",
+        {
+          filePath: data.path,
+          jobDescription: jd,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      console.log("profile:" + JSON.stringify(res.data.profile));
+      console.log("jd:" + JSON.stringify(res.data.jd));
+      console.log("match:" + JSON.stringify(res.data.mat));
+      console.log("improvement:" + JSON.stringify(res.data.imp));
+    } catch (err: any) {
+      console.error(
+        "[analyze] request failed:",
+        err?.response?.data ?? err?.message,
+      );
+    }
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,6 +166,7 @@ try {
           </label>
 
           <textarea
+            onChange={(e) => setJd(e.target.value)}
             id="job-description"
             placeholder="Paste the job description here..."
             className="min-h-64 w-full resize-none rounded-xl border bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-ring"

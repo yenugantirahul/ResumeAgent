@@ -1,7 +1,5 @@
-import { ChatGroq } from "@langchain/groq";
-import dotenv from "dotenv";
+import { model, parseModelJson } from "../config/model.js";
 
-dotenv.config();
 
 export type ResumeProfile = {
   skills: string[];
@@ -24,11 +22,6 @@ export type ResumeProfile = {
   }[];
 };
 
-const model = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY!,
-  model: "llama-3.3-70b-versatile",
-  temperature: 0,
-});
 
 export async function resumeAgent(
   resumeText: string
@@ -86,26 +79,19 @@ ${resumeText}
 
   const response = await model.invoke(prompt);
 
-  const content = response.content;
-
-  if (typeof content !== "string") {
-    throw new Error("Groq response was not a string");
-  }
-
-  const cleanedContent = content
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
-  console.log("Raw Groq output:", content);
+  console.log("[resumeAgent] RAW RESPONSE:", response.content);
 
   try {
-    const parsed = JSON.parse(cleanedContent);
+    const parsed = parseModelJson<ResumeProfile>(response.content);
 
-    return parsed as ResumeProfile;
+    return {
+      skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+      experience: Array.isArray(parsed.experience) ? parsed.experience : [],
+      projects: Array.isArray(parsed.projects) ? parsed.projects : [],
+      education: Array.isArray(parsed.education) ? parsed.education : [],
+    };
   } catch (error) {
-    console.error("Failed JSON:", cleanedContent);
-
-    throw new Error("Groq returned invalid JSON");
+    console.error("[resumeAgent] JSON PARSE FAILED:", response.content, error);
+    throw new Error(`Resume agent returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

@@ -2,12 +2,15 @@ import { Router } from "express";
 import { createSupabaseAdmin } from "../../config/supabase.js";
 import { PDFParse } from "pdf-parse";
 import { resumeAgent } from "../../agents/resume.agent.js";
+import { jdAgent } from "../../agents/jd.agents.js";
+import { matchingAgent } from "../../agents/matching.agent.js";
+import { improvementAgent } from "../../agents/improvement.agent.js";
 
 const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { filePath } = req.body;
+    const { filePath, jobDescription } = req.body;
 
     console.log("[analyze] filePath received:", filePath);
     console.log("[analyze] Authorization header present:", !!req.headers.authorization);
@@ -45,11 +48,16 @@ router.post("/", async (req, res) => {
     const resumeText = result.text;
 
     const profile = await resumeAgent(resumeText);
-
-    console.log(profile);
+    const jd = await jdAgent(jobDescription);
+    const mat = await matchingAgent(profile, jd);
+    const imp = await improvementAgent(profile, jd, mat, );
+    console.log(profile + " " + jd);
 
     return res.status(200).json({
       profile,
+      jd,
+      mat,
+      imp
     });
   } catch (error) {
     const err = error as Error;
