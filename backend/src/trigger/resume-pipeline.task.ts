@@ -39,7 +39,7 @@ export const resumePipelineTask = task({
     const { resumeId } = metadataResult.output;
     logger.log("Step 1 complete — metadata stored", { resumeId });
 
-    // ── Step 2: Analyze the resume ────────────────────────────────────────────
+    // ── Step 2: Analyze the resume
     const analysisResult = await tasks.triggerAndWait(analyzeResumeTask.id, {
       resumeId,
       filePath: payload.filePath,
@@ -55,7 +55,7 @@ export const resumePipelineTask = task({
       overallScore: analysis.overallScore,
     });
 
-    // ── Step 3: Persist the analysis result ──────────────────────────────────
+    // ── Step 3: Persist the analysis result
     const storeResult = await tasks.triggerAndWait(storeResultTask.id, {
       resumeId,
       overallScore: analysis.overallScore,
