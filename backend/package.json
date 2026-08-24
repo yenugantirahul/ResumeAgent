@@ -28,6 +28,7 @@
     "@langchain/langgraph": "^1.4.12",
     "@langchain/openrouter": "^0.4.10",
     "@supabase/supabase-js": "^2.112.3",
+    "@trigger.dev/sdk": "4.5.12",
     "@types/cors": "^2.8.19",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

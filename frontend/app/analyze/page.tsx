@@ -6,11 +6,20 @@ import type { AxiosRequestConfig } from "axios";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { useRef, useState } from "react";
-
+type ResumeResult = {
+  overallScore: number;
+  skillScore: number;
+  matchedSkills: string[];
+  missingSkills: string[];
+  matchSummary: string;
+  suggestions: string[];
+  improvementSummary: string;
+};
 export default function AnalyzePage() {
   const { isSignedIn } = useUser();
   const { getToken, userId } = useAuth();
   const [jd, setJd] = useState<string>();
+  const [result, setResult] = useState<ResumeResult | null>(null);
   const supabase = createSupabaseClient(getToken);
   if (!isSignedIn) {
     redirect("/sign-in");
@@ -68,13 +77,22 @@ export default function AnalyzePage() {
           },
         },
       );
-      console.log("overallScore:", res.data.overallScore);
-      console.log("skillScore:", res.data.skillScore);
-      console.log("matchedSkills:", JSON.stringify(res.data.matchedSkills));
-      console.log("missingSkills:", JSON.stringify(res.data.missingSkills));
-      console.log("matchSummary:", res.data.matchSummary);
-      console.log("suggestions:", JSON.stringify(res.data.suggestions));
-      console.log("improvementSummary:", res.data.improvementSummary);
+      const overallScore = res.data.overallScore;
+      const skillScore = res.data.skillScore;
+      const matchedSkills = res.data.matchedSkills;
+      const missingSkills = res.data.missingSkills;
+      const matchSummary = res.data.matchSummary;
+      const suggestions = res.data.suggestions;
+      const improvementSummary = res.data.improvementSummary;
+      setResult({
+        overallScore,
+        skillScore,
+        matchedSkills,
+        missingSkills,
+        matchSummary,
+        suggestions,
+        improvementSummary,
+      });
     } catch (err: any) {
       console.error(
         "[analyze] request failed:",
@@ -188,6 +206,25 @@ export default function AnalyzePage() {
           </button>
         </div>
       </div>
+      {result && (
+        <div>
+          <p>Overall Score: {result.overallScore}</p>
+          <p>Skill Score: {result.skillScore}</p>
+
+          <p>Matched Skills: {result.matchedSkills.join(", ")}</p>
+          <p>Missing Skills: {result.missingSkills.join(", ")}</p>
+
+          <p>{result.matchSummary}</p>
+
+          <ul>
+            {result.suggestions.map((suggestion, index) => (
+              <li key={index}>{suggestion}</li>
+            ))}
+          </ul>
+
+          <p>{result.improvementSummary}</p>
+        </div>
+      )}
     </main>
   );
 }

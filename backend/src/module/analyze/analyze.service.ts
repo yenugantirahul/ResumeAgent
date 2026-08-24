@@ -1,72 +1,39 @@
-import { createSupabaseAdmin } from "../../config/supabase.js";
-import { PDFParse } from "pdf-parse";
-import { resumeGraph } from "../../graph/resume.graph.js";
+import { tasks } from "@trigger.dev/sdk";
+import { resumePipelineTask } from "../../trigger/resume-pipeline.task.js";
 
 export interface AnalyzeResumeInput {
+  userId: string;
   filePath: string;
+  fileName: string;
   jobDescription: string;
 }
 
 export interface AnalyzeResumeOutput {
-  overallScore: number;
-  skillScore: number;
-  matchedSkills: string[];
-  missingSkills: string[];
-  matchSummary: string;
-  suggestions: string[];
-  improvementSummary: string;
+  taskId: string;
+  message: string;
 }
 
 export class AnalyzeService {
-  
-  // Downloads resume from Supabase storage and extracts its plain text.
-  
-  async extractResumeText(filePath: string): Promise<string> {
-    const supabase = createSupabaseAdmin();
-
-    const { data, error } = await supabase.storage
-      .from("Resumes")
-      .download(filePath);
-
-    if (error) {
-      console.error(
-        "[AnalyzeService] Supabase download error:",
-        JSON.stringify(error)
-      );
-      throw new Error(`Failed to download resume from storage: ${error.message}`);
-    }
-
-    const arrayBuffer = await data.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const parser = new PDFParse({ data: buffer });
-    const parsedPdf = await parser.getText();
-
-    return parsedPdf.text;
-  }
-
-  
-  // Orchestrates resume extraction, LangGraph workflow execution, and result formatting.
-  
-  async analyzeResume({
-    filePath,
-    jobDescription,
-  }: AnalyzeResumeInput): Promise<AnalyzeResumeOutput> {
-    const resumeText = await this.extractResumeText(filePath);
-
-    const result = await resumeGraph.invoke({
-      resumeText,
-      jobDescription,
+  /**
+   * Triggers the resume-pipeline background task and returns immediately.
+   * The pipeline runs three tasks in sequence:
+   *   1. store-resume-metadata  — inserts a PENDING row in Supabase
+   *   2. analyze-resume         — downloads PDF, runs LangGraph agents
+   *   3. store-result           — updates the row to COMPLETED with scores
+   */
+  async analyzeResume(input: AnalyzeResumeInput): Promise<AnalyzeResumeOutput> {
+    const handle = await tasks.trigger(resumePipelineTask.id, {
+      userId: input.userId,
+      filePath: input.filePath,
+      fileName: input.fileName,
+      jobDescription: input.jobDescription,
     });
 
+    console.log("[AnalyzeService] Pipeline task triggered:", handle.id);
+
     return {
-      overallScore: result.analysisResult.overallScore,
-      skillScore: result.analysisResult.skillScore,
-      matchedSkills: result.analysisResult.matchedSkills,
-      missingSkills: result.analysisResult.missingSkills,
-      matchSummary: result.analysisResult.matchSummary,
-      suggestions: result.analysisResult.suggestions,
-      improvementSummary: result.analysisResult.improvementSummary,
+      taskId: handle.id,
+      message: "Resume analysis started. Poll /api/analyze/:taskId for status.",
     };
   }
 }

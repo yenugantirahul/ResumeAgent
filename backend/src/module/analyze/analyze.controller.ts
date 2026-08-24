@@ -2,9 +2,8 @@ import { Request, Response } from "express";
 import { analyzeService } from "./analyze.service.js";
 
 export class AnalyzeController {
-  /**
-   * Handles POST /api/analyze request
-   */
+  // POST /api/analyze request
+
   async analyzeResume(req: Request, res: Response): Promise<Response> {
     try {
       const { filePath, jobDescription } = req.body;
@@ -12,7 +11,7 @@ export class AnalyzeController {
       console.log("[analyze] filePath received:", filePath);
       console.log(
         "[analyze] Authorization header present:",
-        !!req.headers.authorization
+        !!req.headers.authorization,
       );
 
       if (!filePath) {
