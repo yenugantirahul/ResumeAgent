@@ -68,10 +68,13 @@ export default function AnalyzePage() {
           },
         },
       );
-      console.log("profile:" + JSON.stringify(res.data.profile));
-      console.log("jd:" + JSON.stringify(res.data.jd));
-      console.log("match:" + JSON.stringify(res.data.mat));
-      console.log("improvement:" + JSON.stringify(res.data.imp));
+      console.log("overallScore:", res.data.overallScore);
+      console.log("skillScore:", res.data.skillScore);
+      console.log("matchedSkills:", JSON.stringify(res.data.matchedSkills));
+      console.log("missingSkills:", JSON.stringify(res.data.missingSkills));
+      console.log("matchSummary:", res.data.matchSummary);
+      console.log("suggestions:", JSON.stringify(res.data.suggestions));
+      console.log("improvementSummary:", res.data.improvementSummary);
     } catch (err: any) {
       console.error(
         "[analyze] request failed:",

@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Request } from "express";
 import dotenv from "dotenv"
 dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 export function createSupabaseClient(req: Request) {
     const authHeader = req.headers.authorization;

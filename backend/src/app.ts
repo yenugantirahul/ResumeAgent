@@ -5,6 +5,7 @@ import router from "./routes/index.js";
 import { clerkMiddleware } from "@clerk/express";
 import dotenv from "dotenv"
 dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 const app = express()
 

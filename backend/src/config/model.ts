@@ -1,12 +1,13 @@
-import { ChatGroq } from "@langchain/groq";
+import { ChatGoogle } from "@langchain/google";
 
 import dotenv from "dotenv";
 
 dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
-export const model = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY!,
-  model: "openai/gpt-oss-20b",
+export const model = new ChatGoogle({
+  apiKey: process.env.GOOGLE_API_KEY!,
+  model: "gemini-3.5-flash-lite",
   temperature: 0,
 });
 
@@ -14,20 +15,89 @@ export function extractTextContent(content: any): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((block: any) => (typeof block === "string" ? block : block.text || ""))
+      .map((block: any) =>
+        typeof block === "string" ? block : block.text || "",
+      )
       .join("");
   }
-  if (content && typeof content === "object" && typeof content.text === "string") {
+  if (
+    content &&
+    typeof content === "object" &&
+    typeof content.text === "string"
+  ) {
     return content.text;
   }
   return String(content || "");
 }
 
+/**
+ * Attempts to repair truncated JSON by closing any open strings,
+ * arrays, and objects.  Handles the common case where the model
+ * stops generating mid-response due to a token-limit cut-off.
+ */
+export function repairTruncatedJson(raw: string): string {
+  let s = raw.trim();
+
+  // Stack tracks open containers: '{' or '['
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+
+  // If we ended inside a string, close it first
+  if (inString) s += '"';
+
+  // Remove any trailing comma before we start closing
+  s = s.replace(/,\s*$/, "");
+
+  // Close all open containers in LIFO order
+  for (let i = stack.length - 1; i >= 0; i--) {
+    s += stack[i] === "{" ? "}" : "]";
+  }
+
+  return s;
+}
+
 export function parseModelJson<T>(rawContent: any): T {
   let content = extractTextContent(rawContent);
 
-  // Remove <think>...</think> reasoning blocks
-  content = content.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Remove <think>...</think> reasoning blocks.
+  // Some models (e.g. openai/gpt-oss-20b on Groq) embed the entire JSON
+  // response *inside* a think block, so we save the inner text as a fallback
+  // before stripping.
+  const thinkMatches = [...content.matchAll(/<think>([\s\S]*?)<\/think>/gi)];
+  const lastThinkInner =
+    thinkMatches.length > 0 ? thinkMatches[thinkMatches.length - 1][1] : "";
+
+  content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // If stripping think blocks emptied the content, the model put its answer
+  // inside the think block — use that inner text instead.
+  if (!content && lastThinkInner) {
+    console.warn(
+      "[parseModelJson] Content was empty after think-block removal; " +
+        "falling back to think block inner text.",
+    );
+    content = lastThinkInner;
+  }
 
   // Remove markdown code fences
   content = content
@@ -51,14 +121,20 @@ export function parseModelJson<T>(rawContent: any): T {
     const cleaned = jsonStr
       .replace(/,\s*([}\]])/g, "$1")
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) =>
-        c === "\n" || c === "\r" || c === "\t" ? c : ""
+        c === "\n" || c === "\r" || c === "\t" ? c : "",
       );
 
     try {
       return JSON.parse(cleaned) as T;
-    } catch (secondErr) {
-      throw new Error(`Failed to parse model JSON: ${initialErr instanceof Error ? initialErr.message : String(initialErr)} | Raw: ${content}`);
+    } catch (_secondErr) {
+      // Last resort: attempt to repair truncated JSON by closing open structures
+      try {
+        return JSON.parse(repairTruncatedJson(cleaned)) as T;
+      } catch (repairErr) {
+        throw new Error(
+          `Failed to parse model JSON: ${initialErr instanceof Error ? initialErr.message : String(initialErr)} | Raw: ${content}`,
+        );
+      }
     }
   }
 }
-
