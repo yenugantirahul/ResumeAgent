@@ -229,7 +229,7 @@ importers:
         specifier: ^2.112.3
         version: 2.112.3(@opentelemetry/api@1.9.1)
       '@trigger.dev/sdk':
-        specifier: ^4.5.12
+        specifier: 4.5.12
         version: 4.5.12(zod@4.4.3)
       '@types/cors':
         specifier: ^2.8.19

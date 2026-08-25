@@ -34,7 +34,14 @@ export const analyzeResumeTask = task({
 
     const parser = new PDFParse({ data: buffer });
     const parsedPdf = await parser.getText();
-    const resumeText = parsedPdf.text;
+
+    // Clean and truncate: collapse blank lines, trim whitespace noise,
+    // cap at 4000 chars. Fewer input tokens = faster LLM response.
+    const resumeText = parsedPdf.text
+      .replace(/[ \t]+/g, " ")          // collapse horizontal whitespace
+      .replace(/\n{3,}/g, "\n\n")       // collapse 3+ blank lines → 1
+      .trim()
+      .slice(0, 4000);
 
     logger.log("PDF text extracted", { chars: resumeText.length });
 

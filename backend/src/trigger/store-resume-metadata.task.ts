@@ -21,7 +21,6 @@ export const storeResumeMetadataTask = task({
         user_id: payload.userId,
         file_url: payload.filePath,
         file_name: payload.fileName,
-        status: "PENDING",
         created_at: new Date().toISOString(),
       })
       .select("id")
@@ -36,4 +35,3 @@ export const storeResumeMetadataTask = task({
     return { resumeId: data.id as number };
   },
 });
-
