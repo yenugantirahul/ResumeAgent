@@ -25,38 +25,36 @@ export class AnalyzeService {
   async analyzeResume(input: AnalyzeResumeInput): Promise<AnalyzeResumeOutput> {
     const supabase = createSupabaseAdmin();
 
-    // 1. Insert into resumes (metadata only — no status/score columns in this table)
-    console.log("[service] Step 1: inserting resume row for user", input.userId);
-    const { data: row, error: insertError } = await supabase
-      .from("resumes")
-      .insert({
-        user_id: input.userId,
-        file_url: input.filePath,
-        file_name: input.fileName,
-      })
-      .select("id")
-      .single();
+    console.log("[service] Step 1: parallel resume insertion and PDF download");
+    const [insertResult, downloadResult] = await Promise.all([
+      supabase
+        .from("resumes")
+        .insert({
+          user_id: input.userId,
+          file_url: input.filePath,
+          file_name: input.fileName,
+        })
+        .select("id")
+        .single(),
+      supabase.storage
+        .from("Resumes")
+        .download(input.filePath),
+    ]);
 
-    if (insertError) {
-      console.error("[service] Step 1 FAILED:", insertError);
-      throw new Error(`Failed to create resume row: ${insertError.message}`);
+    if (insertResult.error) {
+      console.error("[service] DB insert FAILED:", insertResult.error);
+      throw new Error(`Failed to create resume row: ${insertResult.error.message}`);
     }
-    const resumeId: number = row.id;
-    console.log("[service] Step 1 done, resumeId:", resumeId);
-
-    // 2. Download PDF and extract text
-    console.log("[service] Step 2: downloading PDF", input.filePath);
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("Resumes")
-      .download(input.filePath);
-
-    if (downloadError) {
-      console.error("[service] Step 2 FAILED:", downloadError);
-      throw new Error(`Failed to download resume: ${downloadError.message}`);
+    if (downloadResult.error) {
+      console.error("[service] Storage download FAILED:", downloadResult.error);
+      throw new Error(`Failed to download resume: ${downloadResult.error.message}`);
     }
 
+    const resumeId: number = insertResult.data.id;
+    const fileData = downloadResult.data;
+
+    // Parse PDF text in memory
     const buffer = Buffer.from(await fileData.arrayBuffer());
-    console.log("[service] Step 2: parsing PDF, bytes:", buffer.length);
     const parser = new PDFParse({ data: buffer });
     const parsed = await parser.getText();
     await parser.destroy();
@@ -66,16 +64,15 @@ export class AnalyzeService {
       .replace(/\n{3,}/g, "\n\n")
       .trim()
       .slice(0, 4000);
-    console.log("[service] Step 2 done, text chars:", resumeText.length);
 
-    // 3. Run LangGraph pipeline
-    console.log("[service] Step 3: running LangGraph pipeline");
+    // Run high-speed analysis pipeline
+    console.log("[service] Step 2: running fast analysis pipeline");
     const result = await resumeGraph.invoke({
       resumeText,
       jobDescription: input.jobDescription,
     });
     const analysis = result.analysisResult;
-    console.log("[service] Step 3 done, overallScore:", analysis.overallScore);
+    console.log("[service] Step 2 complete, overallScore:", analysis.overallScore);
 
     // 4. INSERT result into report table (linked via resume_id FK)
     // Note: the DB column is spelled "overall_secore" (typo in schema — must match exactly)

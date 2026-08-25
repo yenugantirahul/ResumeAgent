@@ -13,13 +13,13 @@ export async function jdNode(state: any) {
 }
 
 /**
- * Single node that runs matching + improvement in one LLM call.
- * Replaces the old matchingNode + improvementNode pair.
+ * Fast direct analysis node that evaluates resume against JD directly.
  */
 export async function analysisNode(state: any) {
   const analysisResult = await analysisAgent(
-    state.resumeProfile,
-    state.jobProfile,
+    state.resumeText,
+    state.jobDescription,
   );
   return { analysisResult };
 }
+

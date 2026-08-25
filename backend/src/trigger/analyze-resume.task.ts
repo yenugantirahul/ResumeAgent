@@ -1,3 +1,4 @@
+import "./polyfills.js";
 import { logger, task } from "@trigger.dev/sdk";
 import { PDFParse } from "pdf-parse";
 import { createSupabaseAdmin } from "../config/supabase.js";

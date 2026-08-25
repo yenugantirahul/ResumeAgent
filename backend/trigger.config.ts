@@ -1,3 +1,4 @@
+import "./src/trigger/polyfills.js";
 import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
