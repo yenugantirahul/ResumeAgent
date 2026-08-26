@@ -37,7 +37,7 @@ export default function ResumeDetailPage() {
     async function load() {
       try {
         const token = await getToken();
-        const res = await api.get(`/analyze/${resumeid}`, {
+        const res = await api.get(`/api/analyze/${resumeid}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setResume(res.data);
@@ -92,8 +92,7 @@ export default function ResumeDetailPage() {
   const missingSkills = resume.missingSkills ?? resume.missing_skills ?? [];
   const matchSummary = resume.matchSummary ?? resume.match_summary ?? "";
   const suggestions = resume.suggestions ?? [];
-  const improvementSummary =
-    resume.improvementSummary ?? resume.summary ?? "";
+  const improvementSummary = resume.improvementSummary ?? resume.summary ?? "";
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -149,7 +148,9 @@ export default function ResumeDetailPage() {
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground">No matched skills</p>
+                <p className="text-xs text-muted-foreground">
+                  No matched skills
+                </p>
               )}
             </div>
           </div>
@@ -167,7 +168,9 @@ export default function ResumeDetailPage() {
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground">No missing skills</p>
+                <p className="text-xs text-muted-foreground">
+                  No missing skills
+                </p>
               )}
             </div>
           </div>
@@ -178,7 +181,10 @@ export default function ResumeDetailPage() {
             <p className="mb-3 text-sm font-medium">Suggestions</p>
             <ul className="space-y-2">
               {suggestions.map((s, i) => (
-                <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                <li
+                  key={i}
+                  className="flex gap-2 text-sm text-muted-foreground"
+                >
                   <span className="mt-0.5 text-foreground">→</span> {s}
                 </li>
               ))}
@@ -187,9 +193,7 @@ export default function ResumeDetailPage() {
         )}
 
         {improvementSummary && (
-          <p className="text-sm text-muted-foreground">
-            {improvementSummary}
-          </p>
+          <p className="text-sm text-muted-foreground">{improvementSummary}</p>
         )}
       </div>
 
@@ -210,4 +214,3 @@ export default function ResumeDetailPage() {
     </main>
   );
 }
-

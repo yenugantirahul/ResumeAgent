@@ -15,9 +15,14 @@ type Resume = {
 };
 
 function ScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-sm text-muted-foreground">—</span>;
+  if (score === null)
+    return <span className="text-sm text-muted-foreground">—</span>;
   const color =
-    score >= 75 ? "text-green-600" : score >= 50 ? "text-yellow-600" : "text-red-500";
+    score >= 75
+      ? "text-green-600"
+      : score >= 50
+        ? "text-yellow-600"
+        : "text-red-500";
   return <span className={`text-lg font-bold ${color}`}>{score}%</span>;
 }
 
@@ -30,7 +35,7 @@ export default function DashboardPage() {
     async function load() {
       try {
         const token = await getToken();
-        const res = await api.get("/analyze", {
+        const res = await api.get("/api/analyze", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setResumes(res.data);
@@ -46,10 +51,15 @@ export default function DashboardPage() {
   const completed = resumes.filter((r) => r.status === "COMPLETED");
   const avgScore =
     completed.length > 0
-      ? Math.round(completed.reduce((s, r) => s + (r.overall_score ?? 0), 0) / completed.length)
+      ? Math.round(
+          completed.reduce((s, r) => s + (r.overall_score ?? 0), 0) /
+            completed.length,
+        )
       : null;
   const bestScore =
-    completed.length > 0 ? Math.max(...completed.map((r) => r.overall_score ?? 0)) : null;
+    completed.length > 0
+      ? Math.max(...completed.map((r) => r.overall_score ?? 0))
+      : null;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">

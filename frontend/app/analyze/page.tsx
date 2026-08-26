@@ -68,7 +68,7 @@ export default function AnalyzePage() {
     let resumeId: number;
     try {
       const res = await api.post(
-        "/analyze",
+        "/api/analyze",
         {
           filePath: uploadData.path,
           fileName: file.name,
@@ -93,7 +93,10 @@ export default function AnalyzePage() {
       return;
     } catch (err: any) {
       setStatus("error");
-      const cause = err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message;
+      const cause =
+        err?.response?.data?.error ??
+        err?.response?.data?.message ??
+        err?.message;
       setErrorMsg(`Analysis failed: ${cause}`);
       return;
     }
@@ -213,9 +216,7 @@ export default function AnalyzePage() {
         </section>
 
         {/* Error */}
-        {errorMsg && (
-          <p className="text-sm text-red-500">{errorMsg}</p>
-        )}
+        {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
 
         {/* Submit */}
         <div className="flex justify-end">
@@ -257,7 +258,10 @@ export default function AnalyzePage() {
               <p className="mb-2 text-sm font-medium">Matched Skills</p>
               <div className="flex flex-wrap gap-2">
                 {result.matchedSkills.map((s) => (
-                  <span key={s} className="rounded-full border bg-muted px-3 py-1 text-xs">
+                  <span
+                    key={s}
+                    className="rounded-full border bg-muted px-3 py-1 text-xs"
+                  >
                     {s}
                   </span>
                 ))}
@@ -267,7 +271,10 @@ export default function AnalyzePage() {
               <p className="mb-2 text-sm font-medium">Missing Skills</p>
               <div className="flex flex-wrap gap-2">
                 {result.missingSkills.map((s) => (
-                  <span key={s} className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700">
+                  <span
+                    key={s}
+                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700"
+                  >
                     {s}
                   </span>
                 ))}
@@ -279,14 +286,19 @@ export default function AnalyzePage() {
             <p className="mb-3 text-sm font-medium">Suggestions</p>
             <ul className="space-y-2">
               {result.suggestions.map((s, i) => (
-                <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                <li
+                  key={i}
+                  className="flex gap-2 text-sm text-muted-foreground"
+                >
                   <span className="mt-0.5 text-foreground">→</span> {s}
                 </li>
               ))}
             </ul>
           </div>
 
-          <p className="text-sm text-muted-foreground">{result.improvementSummary}</p>
+          <p className="text-sm text-muted-foreground">
+            {result.improvementSummary}
+          </p>
         </div>
       )}
     </main>
