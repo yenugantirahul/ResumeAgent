@@ -4,27 +4,18 @@ import { createSupabaseClient } from "@/config/supabase";
 import { api } from "@/lib/axios";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRef, useState } from "react";
 
-type ResumeResult = {
-  overallScore: number;
-  skillScore: number;
-  matchedSkills: string[];
-  missingSkills: string[];
-  matchSummary: string;
-  suggestions: string[];
-  improvementSummary: string;
-};
-
-type Status = "idle" | "uploading" | "analyzing" | "done" | "error";
+type Status = "idle" | "uploading" | "submitting" | "submitted" | "error";
 
 export default function AnalyzePage() {
   const { isSignedIn } = useUser();
   const { getToken, userId } = useAuth();
   const [jd, setJd] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<ResumeResult | null>(null);
   const [status, setStatus] = useState<Status>("idle");
+  const [submittedResumeId, setSubmittedResumeId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createSupabaseClient(getToken);
@@ -44,9 +35,8 @@ export default function AnalyzePage() {
     }
 
     setErrorMsg(null);
-    setResult(null);
 
-    // â”€â”€ Step 1: Upload PDF to Supabase Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Step 1: Upload PDF to Supabase Storage ─────────────────────────────────
     setStatus("uploading");
     const fileName = `${userId}/${crypto.randomUUID()}-${file.name}`;
 
@@ -60,36 +50,24 @@ export default function AnalyzePage() {
       return;
     }
 
-    // â”€â”€ Step 2: Trigger background analysis pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Backend fires Trigger.dev task and returns { resumeId } immediately.
-    setStatus("analyzing");
+    // ── Step 2: Enqueue BullMQ analysis job ────────────────────────────────────
+    setStatus("submitting");
     const token = await getToken();
 
-    let resumeId: number;
     try {
-      const res = await api.post("/analyze",
+      const res = await api.post(
+        "/analyze",
         {
           filePath: uploadData.path,
           fileName: file.name,
           jobDescription: jd,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      resumeId = res.data.resumeId;
-      console.log("[analyze] Analysis complete, resumeId:", resumeId);
 
-      // Service is synchronous â€” result is already in the response
-      setResult({
-        overallScore: res.data.overallScore,
-        skillScore: res.data.skillScore,
-        matchedSkills: res.data.matchedSkills ?? [],
-        missingSkills: res.data.missingSkills ?? [],
-        matchSummary: res.data.matchSummary ?? "",
-        suggestions: res.data.suggestions ?? [],
-        improvementSummary: res.data.improvementSummary ?? "",
-      });
-      setStatus("done");
-      return;
+      const resumeId = res.data.resumeId;
+      setSubmittedResumeId(resumeId);
+      setStatus("submitted");
     } catch (err: any) {
       setStatus("error");
       const cause =
@@ -97,41 +75,7 @@ export default function AnalyzePage() {
         err?.response?.data?.message ??
         err?.message;
       setErrorMsg(`Analysis failed: ${cause}`);
-      return;
     }
-
-    // â”€â”€ Step 3: Subscribe to Supabase Realtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // When Trigger.dev finishes, it updates the resumes row from PENDING â†’
-    // COMPLETED. Supabase pushes that change here instantly â€” no polling needed.
-    const channel = supabase
-      .channel(`resume-result-${resumeId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "resumes",
-          filter: `id=eq.${resumeId}`,
-        },
-        (payload) => {
-          const row = payload.new as any;
-          if (row.status === "COMPLETED") {
-            setResult({
-              overallScore: row.overall_score,
-              skillScore: row.skill_score,
-              matchedSkills: row.matched_skills ?? [],
-              missingSkills: row.missing_skills ?? [],
-              matchSummary: row.match_summary ?? "",
-              suggestions: row.suggestions ?? [],
-              improvementSummary: row.summary ?? "",
-            });
-            setStatus("done");
-            // Unsubscribe after receiving the result
-            supabase.removeChannel(channel);
-          }
-        },
-      )
-      .subscribe();
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +83,7 @@ export default function AnalyzePage() {
     if (selected) setFile(selected);
   };
 
-  const isLoading = status === "uploading" || status === "analyzing";
+  const isLoading = status === "uploading" || status === "submitting";
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-16">
@@ -155,152 +99,157 @@ export default function AnalyzePage() {
         </p>
       </div>
 
-      <div className="mt-10 space-y-8">
-        {/* File upload */}
-        <section>
-          <label className="mb-3 block text-sm font-medium">Resume</label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center hover:bg-muted/50"
-          >
-            {file ? (
-              <>
-                <p className="font-medium">{file.name}</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="font-medium">Upload your resume</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  PDF files only
-                </p>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="mt-5 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  {isSignedIn ? "Choose file" : "Login to analyze"}
-                </button>
-              </>
+      {status === "submitted" ? (
+        <div className="mt-10 rounded-2xl border bg-card p-8 shadow-sm text-center space-y-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400">
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Resume Analysis Started!
+            </h2>
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
+              Your resume has been submitted and is currently being analyzed by our AI background worker.
+            </p>
+          </div>
+
+          <div className="rounded-xl border bg-muted/40 p-4 max-w-md mx-auto text-left space-y-1 text-sm">
+            <p><span className="font-medium text-foreground">File:</span> {file?.name}</p>
+            <p><span className="font-medium text-foreground">Status:</span> <span className="inline-flex items-center text-yellow-600 font-medium">Processing in background...</span></p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background hover:opacity-90 transition-opacity"
+            >
+              Go to Dashboard to view resume result →
+            </Link>
+
+            {submittedResumeId && (
+              <Link
+                href={`/dashboard/${submittedResumeId}`}
+                className="w-full sm:w-auto rounded-lg border bg-background px-6 py-3 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                View Report Directly
+              </Link>
             )}
           </div>
-        </section>
 
-        {/* Job description */}
-        <section>
-          <label
-            htmlFor="job-description"
-            className="mb-3 block text-sm font-medium"
-          >
-            Job description
-          </label>
-          <textarea
-            onChange={(e) => setJd(e.target.value)}
-            id="job-description"
-            placeholder="Paste the job description here..."
-            className="min-h-64 w-full resize-none rounded-xl border bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-        </section>
-
-        {/* Error */}
-        {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
-
-        {/* Submit */}
-        <div className="flex justify-end">
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleSubmit();
-            }}
-            disabled={isLoading}
-            className="rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-          >
-            {status === "uploading"
-              ? "Uploading..."
-              : status === "analyzing"
-                ? "Analyzing..."
-                : "Analyze resume"}
-          </button>
+          <div className="pt-4 border-t">
+            <button
+              onClick={() => {
+                setStatus("idle");
+                setFile(null);
+                setJd("");
+                setSubmittedResumeId(null);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              Analyze another resume
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Results */}
-      {result && (
-        <div className="mt-12 space-y-6">
-          <div className="flex gap-6">
-            <div className="rounded-xl border p-6 text-center">
-              <p className="text-sm text-muted-foreground">Overall Score</p>
-              <p className="mt-1 text-4xl font-bold">{result.overallScore}</p>
-            </div>
-            <div className="rounded-xl border p-6 text-center">
-              <p className="text-sm text-muted-foreground">Skill Score</p>
-              <p className="mt-1 text-4xl font-bold">{result.skillScore}</p>
-            </div>
-          </div>
-
-          <p className="text-muted-foreground">{result.matchSummary}</p>
-
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <p className="mb-2 text-sm font-medium">Matched Skills</p>
-              <div className="flex flex-wrap gap-2">
-                {result.matchedSkills.map((s) => (
-                  <span
-                    key={s}
-                    className="rounded-full border bg-muted px-3 py-1 text-xs"
+      ) : (
+        <div className="mt-10 space-y-8">
+          {/* File upload */}
+          <section>
+            <label className="mb-3 block text-sm font-medium">Resume</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center hover:bg-muted/50 transition-colors"
+            >
+              {file ? (
+                <>
+                  <p className="font-medium">{file.name}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">Upload your resume</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    PDF files only
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="mt-5 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
                   >
-                    {s}
-                  </span>
-                ))}
-              </div>
+                    {isSignedIn ? "Choose file" : "Login to analyze"}
+                  </button>
+                </>
+              )}
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium">Missing Skills</p>
-              <div className="flex flex-wrap gap-2">
-                {result.missingSkills.map((s) => (
-                  <span
-                    key={s}
-                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
+          </section>
+
+          {/* Job description */}
+          <section>
+            <label
+              htmlFor="job-description"
+              className="mb-3 block text-sm font-medium"
+            >
+              Job description
+            </label>
+            <textarea
+              value={jd}
+              onChange={(e) => setJd(e.target.value)}
+              id="job-description"
+              placeholder="Paste the job description here..."
+              className="min-h-64 w-full resize-none rounded-xl border bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </section>
+
+          {/* Error */}
+          {errorMsg && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+              {errorMsg}
             </div>
-          </div>
+          )}
 
-          <div>
-            <p className="mb-3 text-sm font-medium">Suggestions</p>
-            <ul className="space-y-2">
-              {result.suggestions.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 text-sm text-muted-foreground"
-                >
-                  <span className="mt-0.5 text-foreground">â†’</span> {s}
-                </li>
-              ))}
-            </ul>
+          {/* Submit */}
+          <div className="flex justify-end">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              disabled={isLoading}
+              className="rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {status === "uploading"
+                ? "Uploading resume..."
+                : status === "submitting"
+                  ? "Starting AI analysis..."
+                  : "Analyze resume"}
+            </button>
           </div>
-
-          <p className="text-sm text-muted-foreground">
-            {result.improvementSummary}
-          </p>
         </div>
       )}
     </main>
   );
 }
-
