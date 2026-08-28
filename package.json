@@ -1,0 +1,13 @@
+﻿{
+  "name": "resume-analyzer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-all.js",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:worker": "pnpm --filter backend dev:worker",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "start": "node scripts/start-all.js",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build"
+  }
+}
