@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
@@ -16,7 +16,7 @@ type Resume = {
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null)
-    return <span className="text-sm text-muted-foreground">—</span>;
+    return <span className="text-sm text-muted-foreground">â€”</span>;
   const color =
     score >= 75
       ? "text-green-600"
@@ -35,7 +35,7 @@ export default function DashboardPage() {
     async function load() {
       try {
         const token = await getToken();
-        const res = await api.get("/api/analyze", {
+        const res = await api.get("/analyze", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setResumes(res.data);
@@ -88,13 +88,13 @@ export default function DashboardPage() {
         <div className="rounded-xl border p-5">
           <p className="text-sm text-muted-foreground">Average match</p>
           <p className="mt-2 text-2xl font-semibold">
-            {avgScore !== null ? `${avgScore}%` : "—"}
+            {avgScore !== null ? `${avgScore}%` : "â€”"}
           </p>
         </div>
         <div className="rounded-xl border p-5">
           <p className="text-sm text-muted-foreground">Best match</p>
           <p className="mt-2 text-2xl font-semibold">
-            {bestScore !== null ? `${bestScore}%` : "—"}
+            {bestScore !== null ? `${bestScore}%` : "â€”"}
           </p>
         </div>
       </div>
@@ -159,3 +159,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+

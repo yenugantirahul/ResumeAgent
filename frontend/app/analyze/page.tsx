@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { createSupabaseClient } from "@/config/supabase";
 import { api } from "@/lib/axios";
@@ -46,7 +46,7 @@ export default function AnalyzePage() {
     setErrorMsg(null);
     setResult(null);
 
-    // ── Step 1: Upload PDF to Supabase Storage ───────────────────────────────
+    // â”€â”€ Step 1: Upload PDF to Supabase Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     setStatus("uploading");
     const fileName = `${userId}/${crypto.randomUUID()}-${file.name}`;
 
@@ -60,15 +60,14 @@ export default function AnalyzePage() {
       return;
     }
 
-    // ── Step 2: Trigger background analysis pipeline ─────────────────────────
+    // â”€â”€ Step 2: Trigger background analysis pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Backend fires Trigger.dev task and returns { resumeId } immediately.
     setStatus("analyzing");
     const token = await getToken();
 
     let resumeId: number;
     try {
-      const res = await api.post(
-        "/api/analyze",
+      const res = await api.post("/analyze",
         {
           filePath: uploadData.path,
           fileName: file.name,
@@ -79,7 +78,7 @@ export default function AnalyzePage() {
       resumeId = res.data.resumeId;
       console.log("[analyze] Analysis complete, resumeId:", resumeId);
 
-      // Service is synchronous — result is already in the response
+      // Service is synchronous â€” result is already in the response
       setResult({
         overallScore: res.data.overallScore,
         skillScore: res.data.skillScore,
@@ -101,9 +100,9 @@ export default function AnalyzePage() {
       return;
     }
 
-    // ── Step 3: Subscribe to Supabase Realtime ───────────────────────────────
-    // When Trigger.dev finishes, it updates the resumes row from PENDING →
-    // COMPLETED. Supabase pushes that change here instantly — no polling needed.
+    // â”€â”€ Step 3: Subscribe to Supabase Realtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // When Trigger.dev finishes, it updates the resumes row from PENDING â†’
+    // COMPLETED. Supabase pushes that change here instantly â€” no polling needed.
     const channel = supabase
       .channel(`resume-result-${resumeId}`)
       .on(
@@ -290,7 +289,7 @@ export default function AnalyzePage() {
                   key={i}
                   className="flex gap-2 text-sm text-muted-foreground"
                 >
-                  <span className="mt-0.5 text-foreground">→</span> {s}
+                  <span className="mt-0.5 text-foreground">â†’</span> {s}
                 </li>
               ))}
             </ul>
@@ -304,3 +303,4 @@ export default function AnalyzePage() {
     </main>
   );
 }
+
