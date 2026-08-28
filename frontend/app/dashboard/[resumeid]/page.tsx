@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
@@ -34,13 +34,22 @@ export default function ResumeDetailPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    let timer: NodeJS.Timeout;
+
     async function load() {
       try {
         const token = await getToken();
-        const res = await api.get(`/api/analyze/${resumeid}`, {
+        // Fixed: removed duplicate /api prefix
+        const res = await api.get(`/analyze/${resumeid}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setResume(res.data);
+        setNotFound(false);
+
+        // If status is PENDING, auto-poll every 3 seconds until COMPLETED
+        if (res.data.status === "PENDING") {
+          timer = setTimeout(load, 3000);
+        }
       } catch (err: any) {
         if (err?.response?.status === 404) setNotFound(true);
         else console.error("Failed to load resume details:", err);
@@ -48,15 +57,21 @@ export default function ResumeDetailPage() {
         setLoading(false);
       }
     }
+
     if (resumeid) {
       load();
     }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [resumeid]);
 
   if (loading) {
     return (
       <main className="mx-auto max-w-4xl px-6 py-16 text-center text-muted-foreground">
-        Loading...
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+        Loading report...
       </main>
     );
   }
@@ -64,7 +79,7 @@ export default function ResumeDetailPage() {
   if (notFound || !resume) {
     return (
       <main className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <p className="text-muted-foreground">Resume not found.</p>
+        <p className="text-muted-foreground">Resume report not found.</p>
         <Link href="/dashboard" className="mt-4 inline-block text-sm underline">
           Back to dashboard
         </Link>
@@ -74,14 +89,17 @@ export default function ResumeDetailPage() {
 
   if (resume.status === "PENDING") {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <p className="text-lg font-medium">Analysis in progress...</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This usually takes 15–30 seconds. Refresh to check.
+      <main className="mx-auto max-w-4xl px-6 py-16 text-center space-y-4">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent" />
+        <p className="text-xl font-semibold">AI Analysis in progress...</p>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          Our background BullMQ worker is analyzing your resume with Gemini AI. This page will automatically update in a few seconds.
         </p>
-        <Link href="/dashboard" className="mt-6 inline-block text-sm underline">
-          Back to dashboard
-        </Link>
+        <div className="pt-4">
+          <Link href="/dashboard" className="rounded-lg border px-4 py-2 text-sm hover:bg-muted">
+            Back to dashboard
+          </Link>
+        </div>
       </main>
     );
   }
@@ -122,11 +140,11 @@ export default function ResumeDetailPage() {
         <div className="flex gap-6">
           <div className="rounded-xl border p-6 text-center">
             <p className="text-sm text-muted-foreground">Overall Score</p>
-            <p className="mt-1 text-4xl font-bold">{overallScore}</p>
+            <p className="mt-1 text-4xl font-bold">{overallScore}%</p>
           </div>
           <div className="rounded-xl border p-6 text-center">
             <p className="text-sm text-muted-foreground">Skill Score</p>
-            <p className="mt-1 text-4xl font-bold">{skillScore}</p>
+            <p className="mt-1 text-4xl font-bold">{skillScore}%</p>
           </div>
         </div>
 
@@ -162,7 +180,7 @@ export default function ResumeDetailPage() {
                 missingSkills.map((s) => (
                   <span
                     key={s}
-                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700"
+                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400"
                   >
                     {s}
                   </span>
@@ -185,7 +203,7 @@ export default function ResumeDetailPage() {
                   key={i}
                   className="flex gap-2 text-sm text-muted-foreground"
                 >
-                  <span className="mt-0.5 text-foreground">→</span> {s}
+                  <span className="mt-0.5 text-foreground">•</span> {s}
                 </li>
               ))}
             </ul>
