@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+﻿import { Request, Response } from "express";
 import { getAuth } from "@clerk/express";
 import { analyzeService } from "./analyze.service.js";
 import { createSupabaseAdmin } from "../../config/supabase.js";
@@ -17,19 +17,19 @@ export class AnalyzeController {
       if (!jobDescription) return res.status(400).json({ message: "jobDescription is required" });
 
       const result = await analyzeService.analyzeResume({ userId, filePath, fileName, jobDescription });
-      return res.status(200).json(result);
+      return res.status(202).json(result);
     } catch (error) {
       const err = error as Error;
       console.error("[analyze] 500 ERROR:", err.message);
       console.error("[analyze] Stack:", err.stack);
       return res.status(500).json({
         message: "Failed to start resume analysis",
-        error: err.message,   // ← shows in browser console
+        error: err.message,   // â† shows in browser console
       });
     }
   }
 
-  // GET /api/analyze — list all resumes for the authenticated user
+  // GET /api/analyze â€” list all resumes for the authenticated user
   async getResumes(req: Request, res: Response): Promise<Response> {
     try {
       const { userId } = getAuth(req);
@@ -64,7 +64,7 @@ export class AnalyzeController {
     }
   }
 
-  // GET /api/analyze/:id — get a single resume with full results
+  // GET /api/analyze/:id â€” get a single resume with full results
   async getResumeById(req: Request, res: Response): Promise<Response> {
     try {
       const { userId } = getAuth(req);
@@ -114,3 +114,4 @@ export class AnalyzeController {
 }
 
 export const analyzeController = new AnalyzeController();
+

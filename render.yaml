@@ -1,35 +1,31 @@
-﻿# render.yaml — Render Blueprint for Resume Analyzer API
+﻿# render.yaml — Render Blueprint for Resume Analyzer
 #
-# This file deploys the Express.js backend to Render's free tier.
+# Deploys the Express API + BullMQ Worker in ONE free web service
+# (using the start-all.js process multiplexing pattern).
 #
 # Frontend (Next.js): Deploy separately on Vercel → https://vercel.com/new
-# AI Background Tasks (Trigger.dev): Deploy with:
-#   cd backend && npx trigger.dev@latest deploy
 #
-# Setup:
-#   1. Connect GitHub repo to Render
-#   2. Render will auto-detect this file and create the service
-#   3. Set all "sync: false" env vars manually in the Render dashboard
-#   4. Deploy the frontend on Vercel and set NEXT_PUBLIC_BASE_URL to the Render API URL
+# Redis: Set REDIS_URL in Render dashboard using Upstash or Redis Cloud free tier.
 
 services:
-  # ── Backend API ──────────────────────────────────────────────────────────────
+  # ── API + Worker (combined in one free web service) ──────────────────────────
   - type: web
     name: resume-analyzer-api
     runtime: node
     region: oregon
     plan: free
 
-    # Build from the backend subdirectory
-    rootDir: backend
+    # Build from repo root so scripts/ directory is accessible
+    rootDir: .
 
-    # Install deps and compile TypeScript
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: >
+      cd backend &&
+      pnpm install --frozen-lockfile &&
+      pnpm build
 
-    # Start the compiled server
-    startCommand: node dist/server.js
+    # Starts both Express API and BullMQ worker using process multiplexing
+    startCommand: node scripts/start-all.js
 
-    # Render uses this to verify the service is healthy
     healthCheckPath: /api/health
 
     envVars:
@@ -70,6 +66,6 @@ services:
       - key: FRONTEND_URL
         sync: false
 
-      # Trigger.dev — set in Render dashboard (get from trigger.dev dashboard)
-      - key: TRIGGER_SECRET_KEY
+      # Redis (BullMQ) — use Upstash (https://upstash.com) or Redis Cloud free tier
+      - key: REDIS_URL
         sync: false
