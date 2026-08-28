@@ -1,13 +1,9 @@
+﻿import "./env.js";
 import { ChatGoogle } from "@langchain/google";
-
-import dotenv from "dotenv";
-
-dotenv.config();
-dotenv.config({ path: ".env.local", override: true });
 
 export const model = new ChatGoogle({
   apiKey: process.env.GOOGLE_API_KEY!,
-  model: "gemini-3.5-flash-lite",
+  model: "gemini-2.5-flash-lite",
   temperature: 0,
 });
 
@@ -79,18 +75,12 @@ export function repairTruncatedJson(raw: string): string {
 export function parseModelJson<T>(rawContent: any): T {
   let content = extractTextContent(rawContent);
 
-  // Remove <think>...</think> reasoning blocks.
-  // Some models (e.g. openai/gpt-oss-20b on Groq) embed the entire JSON
-  // response *inside* a think block, so we save the inner text as a fallback
-  // before stripping.
   const thinkMatches = [...content.matchAll(/<think>([\s\S]*?)<\/think>/gi)];
   const lastThinkInner =
     thinkMatches.length > 0 ? thinkMatches[thinkMatches.length - 1][1] : "";
 
   content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
-  // If stripping think blocks emptied the content, the model put its answer
-  // inside the think block — use that inner text instead.
   if (!content && lastThinkInner) {
     console.warn(
       "[parseModelJson] Content was empty after think-block removal; " +
@@ -127,7 +117,6 @@ export function parseModelJson<T>(rawContent: any): T {
     try {
       return JSON.parse(cleaned) as T;
     } catch (_secondErr) {
-      // Last resort: attempt to repair truncated JSON by closing open structures
       try {
         return JSON.parse(repairTruncatedJson(cleaned)) as T;
       } catch (repairErr) {

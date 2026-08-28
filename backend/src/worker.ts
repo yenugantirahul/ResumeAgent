@@ -1,23 +1,9 @@
-﻿import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load env files with absolute paths from both cwd and backend directories
-dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-dotenv.config({ path: path.resolve(process.cwd(), "backend/.env.local") });
-dotenv.config({ path: path.resolve(process.cwd(), "backend/.env") });
+﻿import "./config/env.js";
+import { startResumeWorker } from "./queue/resume.worker.js";
 
 console.log("[worker] Environment check:");
 console.log(`  SUPABASE_URL: ${process.env.SUPABASE_URL ? "Loaded ✅" : "MISSING ❌"}`);
 console.log(`  REDIS_URL: ${process.env.REDIS_URL || "redis://localhost:6379"}`);
-
-import { startResumeWorker } from "./queue/resume.worker.js";
 
 const worker = startResumeWorker();
 
