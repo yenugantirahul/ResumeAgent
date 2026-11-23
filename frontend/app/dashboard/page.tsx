@@ -46,7 +46,7 @@ export default function DashboardPage() {
       }
     }
     load();
-  }, []);
+  }, [getToken]);
 
   const completed = resumes.filter((r) => r.status === "COMPLETED");
   const avgScore =

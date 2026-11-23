@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/axios";
+import { api, getApiErrorMessage, isApiNotFound } from "@/lib/axios";
 import Link from "next/link";
 
 type ResumeDetail = {
@@ -32,29 +32,38 @@ export default function ResumeDetailPage() {
   const [resume, setResume] = useState<ResumeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
 
     async function load() {
       try {
         const token = await getToken();
-        // Fixed: removed duplicate /api prefix
         const res = await api.get(`/analyze/${resumeid}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
+        if (cancelled) return;
+
         setResume(res.data);
         setNotFound(false);
+        setErrorMessage(null);
 
-        // If status is PENDING, auto-poll every 3 seconds until COMPLETED
         if (res.data.status === "PENDING") {
           timer = setTimeout(load, 3000);
         }
-      } catch (err: any) {
-        if (err?.response?.status === 404) setNotFound(true);
-        else console.error("Failed to load resume details:", err);
+      } catch (error: unknown) {
+        if (cancelled) return;
+
+        if (isApiNotFound(error)) {
+          setNotFound(true);
+        } else {
+          setErrorMessage(getApiErrorMessage(error, "Failed to load this report."));
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -63,9 +72,10 @@ export default function ResumeDetailPage() {
     }
 
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [resumeid]);
+  }, [getToken, resumeid]);
 
   if (loading) {
     return (
@@ -79,7 +89,9 @@ export default function ResumeDetailPage() {
   if (notFound || !resume) {
     return (
       <main className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <p className="text-muted-foreground">Resume report not found.</p>
+        <p className="text-muted-foreground">
+          {notFound ? "Resume report not found." : errorMessage}
+        </p>
         <Link href="/dashboard" className="mt-4 inline-block text-sm underline">
           Back to dashboard
         </Link>

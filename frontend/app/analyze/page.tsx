@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { createSupabaseClient } from "@/config/supabase";
-import { api } from "@/lib/axios";
+import { api, getApiErrorMessage } from "@/lib/axios";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -18,7 +18,6 @@ export default function AnalyzePage() {
   const [submittedResumeId, setSubmittedResumeId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createSupabaseClient(getToken);
 
   if (!isSignedIn) {
     redirect("/sign-in");
@@ -39,6 +38,7 @@ export default function AnalyzePage() {
     // ── Step 1: Upload PDF to Supabase Storage ─────────────────────────────────
     setStatus("uploading");
     const fileName = `${userId}/${crypto.randomUUID()}-${file.name}`;
+    const supabase = createSupabaseClient(getToken);
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("Resumes")
@@ -68,13 +68,9 @@ export default function AnalyzePage() {
       const resumeId = res.data.resumeId;
       setSubmittedResumeId(resumeId);
       setStatus("submitted");
-    } catch (err: any) {
+    } catch (error: unknown) {
       setStatus("error");
-      const cause =
-        err?.response?.data?.error ??
-        err?.response?.data?.message ??
-        err?.message;
-      setErrorMsg(`Analysis failed: ${cause}`);
+      setErrorMsg(`Analysis failed: ${getApiErrorMessage(error)}`);
     }
   }
 

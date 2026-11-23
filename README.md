@@ -38,7 +38,8 @@ Upload resume + job description
 cd backend
 cp .env.example .env.local   # add your API keys
 pnpm install
-pnpm dev
+pnpm dev                     # API
+pnpm dev:worker              # worker, in a second terminal
 ```
 
 **Frontend**
@@ -70,3 +71,9 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
+
+The background worker also needs Redis. For local development, run Redis on
+`redis://localhost:6379` or set `REDIS_URL` in `backend/.env.local`.
+
+From the repository root, `pnpm dev` starts the API and worker together, while
+`pnpm dev:frontend` starts the frontend. Run `pnpm build` to build both apps.
